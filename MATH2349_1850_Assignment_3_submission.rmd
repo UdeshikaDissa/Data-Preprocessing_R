@@ -1,0 +1,538 @@
+---
+title: "MATH2349 Semester 2, 2018"
+author: "Udeshika Dissanayake (s3400652)"
+subtitle: Assignment 3
+output:
+  html_notebook: default
+  html_document:
+    df_print: paged
+---
+
+
+$~$
+$~$
+$~$
+
+## Required Packages 
+
+Below packages and libraries in R have been used in for this Exercise.
+```{r message=FALSE, warning=FALSE,results='hide'}
+library(knitr)
+library(ggplot2)
+library(readr)
+library(tidyr)
+
+library(deductive)
+library(validate)
+library(Hmisc)
+
+library(stringr)
+library(lubridate)
+library(outliers)
+library(MVN)
+library(MASS)
+library(caret)
+library(dplyr)
+
+```
+
+
+
+$~$
+$~$
+$~$
+
+## Executive Summary 
+
+The data sets used in this exercise contain world population evolution (from 1960 to 2017) and countries income classification for 264 observations. Firstly, the variables in the data sets have been carefully examined in order to get a proper understanding on the data sets. The two data sets have been merged using the common variable of Country Code. Then, the structure and attributes of the merged data set have been carefully checked. Data types of a few variables have been converted to have a better representation of the data. In order to make the data set tidier, unnecessary variables for the exercise have been dropped. Also a few variables have been re-labeled to have a better representation. After that, the data set have been transformed from wide format to long format. Subsequently, the missing values and special values in the data set have been appropriately treated. The outliers of the data set have been investigated using the z-score method. The numerical variable of "Total_population" has been checked for its distribution using Histogram and identified that its not normal, but strongly right-skewed. By using logarithm base e (ln) transformation, this variable has been converted to normally distributed representation for convenient analysis.
+
+$~$
+$~$
+$~$
+
+
+
+## Data 
+
+```{r, echo=TRUE,include=FALSE}
+#Before loading the data set in to R Studio, serwd() function has been used to set the working directory.
+setwd("C:/Users/udesh/OneDrive/RMIT/2018_Sem2/MATH2349 Data Preprocessing/Assignments/Assignment3/World Population/Total")
+```
+
+
+**Data source:** World Development Indicators - Population dynamics
+
+**Retrieved from:** 
+[https://data.worldbank.org/indicator/SP.POP.TOTL](https://data.worldbank.org/indicator/SP.POP.TOTL)
+
+$~$
+$~$
+$~$
+
+#### Data set 1: Total Population
+
+The date set contains total population of 264 countries from year 1960 to 2017. Following are the variables in the data set.
+
+**Variables:**  
+* Country Name  
+* Country Code  
+* Indicator Name: Population, total  
+* Indicator Code: SP.POP.TOTL  
+* Total Population values from the year 1960 to 2017  
+
+The total population data set has been loaded in to R Studio using the readr function and then print the data frame to inspect the data. The data set has been labeled as total_pop.
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+
+# Skip first 4 rows in csv & load data set
+headers = read.csv("API_SP.POP.TOTL_DS2_en_csv_v2_10134466.csv", skip = 4, header = F,
+                   nrows = 1, as.is = T) 
+total_pop = read.csv("API_SP.POP.TOTL_DS2_en_csv_v2_10134466.csv",skip = 5, header = F)
+colnames(total_pop)= headers
+head(total_pop, 4)
+
+```
+
+<P style="page-break-before: always">
+
+
+#### Data set 2: Income group
+
+The data set contains the classification of income (Income Group) of 264 countries for the year 2017. Following are the variables in the data set.
+
+**Variables:**  
+* Country Code  
+* Region    
+* IncomeGroup
+
+The income group data set has been loaded in to R Studio using the readr function and then print the data frame to inspect the data frame. The data set has been labeled as income_group.
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+income_group<-read_csv("Metadata_Country_API_SP.POP.TOTL_DS2_en_csv_v2_10134466.csv")
+head(income_group, 4)
+
+```
+
+There are 46 records in this data set with no input (blank) for the variable, income group. These records do not represent really countries, but rather represent a group of countries based on geographical regions or economical similarities. A few such examples are ARB - Arab World, CEB - Central Europe and the Balatics, and LMC - Lower Middle Income.
+
+$~$
+$~$
+$~$
+
+#### Join two Data sets
+
+The key variable 'Country Code' has been used to combine 'income_group' and 'total_pop' data frames. The combined data frame has been labeled as 'total_pop_combined'.
+
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+
+total_pop_combined<- total_pop %>% left_join(income_group,by="Country Code")
+
+```
+
+
+$~$
+$~$
+$~$
+
+## Understand 
+
+The function head() has been used to view the first 4 rows of the combined data frame. Then the str() function has been used to check the structure of the data set (i.e. dimension, column names/attributes, types of variables, and levels of categorical variables). The data set consists with 264 observations and 68 variables. As shown below, columns Country Name, Indicator Name, and Indicator Code are factor variables while population of years are numerical variables. Also the Country Code, IncomeGroup, Region, SpecialNotes, TableName, and X6 are character variables.
+
+```{r}
+head(total_pop_combined, 4)
+```
+
+
+```{r, echo=TRUE}
+str(total_pop_combined) # Checking the structure of the data set
+```
+
+$~$
+$~$
+$~$
+
+
+#### Data type conversions
+
+The IncomeGroup and Region variables are more appropriate to be a factor data type. However in the data set they are defined as character variables. In below steps, these two variables are converted to factor data types and define the levels.
+
+```{r}
+
+total_pop_combined$IncomeGroup<- factor(total_pop_combined$IncomeGroup,
+                                        levels=c('Low income',
+                                                 'Lower middle income',
+                                                 'Upper middle income',
+                                                 'High income'),
+                                        labels = c('Low',
+                                                   'Lower middle',
+                                                   'Upper middle',
+                                                   'High'),
+                                        ordered=TRUE)
+
+total_pop_combined$Region <- factor(total_pop_combined$Region,
+                                  levels=c('Latin America & Caribbean',
+                                           'South Asia',
+                                           'Sub-Saharan Africa',
+                                           'Europe & Central Asia',
+                                           'Middle East & North Africa',
+                                           'East Asia & Pacific',
+                                           'North America'))
+
+
+```
+
+
+
+The variables Table Name, Special notes, Indicator Code, Indicator Name, and X6 are not required for this exercise, therefore will be dropped in future step. These variables were not considered for data type conversions.  
+  
+  
+Below is the first four rows of the data type convered variables in the data frame after the conversions.  
+
+
+```{r}
+check_pop<- total_pop_combined %>% select(c(1:2,64:65)) 
+head(check_pop, 4)
+```
+
+
+
+<P style="page-break-before: always">
+
+##	Tidy & Manipulate Data I 
+
+
+#### Drop unwanted colums
+
+As explained in the previous section, the variables Table Name, Special notes, Indicator Code, Indicator Name, and X6 are dropped to tidy up the data set.
+
+```{r}
+
+total_pop_comb_tidy<- total_pop_combined %>% 
+  select(-`TableName`,-X6,-`Indicator Name`,-`Indicator Code`,-`NA`,-SpecialNotes)
+
+```
+
+$~$
+$~$
+$~$
+
+#### Tidy up the Data 
+
+Checking the data set against the Tidy Data Principles, it deemed the data set is untidy as some values of a real variable are in columns (example- column names 1960 to 2017 represent value of the year variable).
+The gather() function of "tidyr" has been used to transform the data frame from wide format to long format.
+
+
+```{r}
+total_pop_comb_tidy<- total_pop_comb_tidy %>% 
+  gather(key="Year", value ="Total_population", 3:60)
+
+#Converting the data type of column "Year"
+total_pop_comb_tidy$Year <- as.integer(total_pop_comb_tidy$Year) 
+
+```
+
+$~$
+$~$
+$~$
+
+####Relabelling column names.
+
+Some of the variable names have been re-labelled to have more meaningful names as bellow:
+
+```{r}
+total_pop_comb_tidy <- rename(total_pop_comb_tidy,
+                              Country_Name=`Country Name`,
+                              Country_Code=`Country Code`,
+                              IncomeGroup2017=IncomeGroup) 
+# First 4 obervations of the data frame
+head(total_pop_comb_tidy, 4)
+```
+
+
+$~$
+$~$
+$~$
+
+
+
+##	Tidy & Manipulate Data II 
+
+#### Annual population growth in 2017
+
+As described below, a new variable has been created as Growth_2017, which represents the annual growth of population.
+A subset of data has been created by filtering the tidy up data set for 2016 and 2017 observations.  The formula outlined in below code has been used to get the values for Growth_2017. Subsequently, the data set has been filtered out only for 2017 observations. Below are the first four entries of the data set total_pop_2017.
+
+```{r}
+
+# Filter rows with 2016 & 2017 
+total_pop_2017<- total_pop_comb_tidy %>% filter(Year==2017|Year==2016)
+
+# Calculate populatin growth 2017
+total_pop_growth_2017<- total_pop_comb_tidy %>% filter(Year==2017|Year==2016) %>%
+  group_by(Country_Name) %>% mutate(Growth_2017 = 
+                                      ((Total_population/lag(Total_population) - 1) * 100)) %>% 
+  filter(Year==2017) %>% select(-(Year))  
+
+head(total_pop_growth_2017, 4)
+
+```
+
+
+
+$~$
+$~$
+$~$
+
+
+##	Scan I 
+
+#### Checking and dealing with missing values
+Below codes have been executed to identify the missing values in the 'Total_population' column:
+```{r}
+#rows with missing values in the column Total_population
+total_pop_comb_tidy_missing<- total_pop_comb_tidy %>% subset(is.na(Total_population))
+head(total_pop_comb_tidy_missing)
+```
+
+
+```{r}
+#Calculating total missing values in the column Total_population in each country
+total_pop_comb_tidy_missing_count<- total_pop_comb_tidy_missing %>% group_by(Country_Name) %>% 
+  summarise(NA_count=sum(is.na(Total_population)))
+
+total_pop_comb_tidy_missing_count
+```
+
+Above are the population missing frequencies for each countries.  
+The "Not Classified" observations are not related to any real countries and those have no data for any other variables. Therefore those Not Classified  entries can safely be dropped.  
+  
+The missing population values for other aforementioned countries have been replaced by population data in adjacent year.
+
+
+```{r message=FALSE, warning=FALSE}
+# Drop Not Classified  entries
+total_pop_comb_tidy_clean<-  total_pop_comb_tidy[!total_pop_comb_tidy$Country_Name=="Not classified",]
+
+
+# Replace missing population by population data in adjacent year
+
+total_pop_comb_tidy_clean<- total_pop_comb_tidy_clean %>% group_by(Country_Name) %>% 
+  fill(Total_population,.direction = "down")
+
+total_pop_comb_tidy_clean<- total_pop_comb_tidy_clean %>% group_by(Country_Name) %>%
+  fill(Total_population,.direction = "up")
+
+
+```
+  
+  
+    
+Similarly, below codes have been executed to identify & fix the missing values in other variables.
+
+
+```{r}
+#rows with missing values in the column Country_Name
+total_pop_comb_tidy_clean %>% subset(is.na(Country_Name))
+
+#rows with missing values in the column Country_Code
+total_pop_comb_tidy_clean %>% subset(is.na(Country_Code))
+
+#rows with missing values in the column Region
+total_pop_comb_tidy_clean %>% subset(is.na(Region))
+
+```
+
+
+
+
+```{r}
+#Calculating total missing values in the column Region in each country
+total_pop_comb_tidy_clean_count<- total_pop_comb_tidy_clean %>% subset(is.na(Region)) %>% 
+  group_by(Country_Name) %>% summarise(NA_count=sum(is.na(Region)))
+
+total_pop_comb_tidy_clean_count
+```
+
+There were 2668 entries with missing Region values as can be seen above. When those missing values are classified against frequencies, it shows that there were 46 countries with fully missing (from 1960-2017) region value. Carefully considering, it is understood these are not real countries, but rather regions themselves. Therefore those observations can safely be dropped down.
+
+```{r}
+total_pop_clean<- total_pop_comb_tidy_clean[complete.cases(total_pop_comb_tidy_clean),]
+
+```
+
+
+Finally, below codes have been executed to identify the missing values in the IncomeGroup2017 and  Year columns.
+
+```{r}
+#rows with missing values in the column IncomeGroup2017
+total_pop_clean %>% subset(is.na(IncomeGroup2017))
+
+#rows with missing values in the column Year
+total_pop_clean %>% subset(is.na(Year))
+
+```
+
+
+
+#### check for special values
+
+Below codes have been run to identify the inconsistencies or special values in Total_population column.
+```{r}
+#check input whether they are not infinite or NA unsing a fuction called is.special
+is.special<- function(x){ 
+  if(is.numeric(x)) !is.finite(x) else is.na(x) 
+  } 
+is.special<- function(x){
+  if(is.numeric(x)) !is.finite(x) 
+  }
+#Applly is.special function to the Total_population column 
+a<- sapply(total_pop_clean$Total_population, is.special) 
+#Count the number of special values in the Total_population column 
+length(a[a=="TRUE"])
+
+
+```
+Similarly, respective code has been run to identify the inconsistencies or special values in other columns. It was noticed that zero inconsistencies or special values were identified in other columns.
+
+```{r, include=FALSE}
+#Applly is.special function to the Country_Name column 
+a<- sapply(total_pop_clean$Country_Name, is.special) 
+#Count the number of special values in the Country_Name column 
+length(a[a=="TRUE"])
+
+#Applly is.special function to the Country_Code column 
+a<- sapply(total_pop_clean$Country_Code, is.special) 
+#Count the number of special values in the Country_Code column 
+length(a[a=="TRUE"])
+
+#Applly is.special function to the Region column 
+a<- sapply(total_pop_clean$Region, is.special) 
+#Count the number of special values in the Region column 
+length(a[a=="TRUE"])
+
+#Applly is.special function to the IncomeGroup2017 column 
+a<- sapply(total_pop_clean$IncomeGroup2017, is.special) 
+#Count the number of special values in the IncomeGroup2017 column 
+length(a[a=="TRUE"])
+
+#Applly is.special function to the Year column 
+a<- sapply(total_pop_clean$Year, is.special) 
+#Count the number of special values in the Year column 
+length(a[a=="TRUE"])
+```
+
+
+
+
+To make sure there is no further missing values/inconsistencies, below code has been run.
+```{r}
+total_pop_clean[!complete.cases(total_pop_clean),]
+
+```
+
+Below is the final data set after performing all above mentioned data preprocessing.
+```{r}
+total_pop_clean
+```
+
+
+<P style="page-break-before: always">
+
+
+##	Scan II - Checking for outliers
+
+
+The only numerical variable to be checked for outliers in the data set is Total_population. 
+The outliers have been investigated using the z-score method for Total_population as shown in below code:
+
+
+```{r}
+z.scores <- total_pop_clean$Total_population %>%  scores(type = "z")
+
+z.scores %>% summary()
+which( abs(z.scores) >3 )
+```
+
+
+```{r}
+Total_pop_outliers<- total_pop_clean[which( abs(z.scores) >3 ),] %>% count(Country_Name)
+Total_pop_outliers
+```
+
+China and India came as outliers in the data set due to its large number of population. Hence, the analysis for China and India should be done separate to the other countries The last entry (2017) for United States has also come as an outlier, but could be ignored as an outlier after checking the value.  
+China and India has been dropped from the dataframe as below:
+
+```{r}
+Total_pop_last <- total_pop_clean %>% filter(Country_Name!="China", Country_Name!="India")
+Total_pop_last
+```
+
+<P style="page-break-before: always">
+
+In addition to the above, the outliers have been checked in Total_population variable for each countries separately. Below code shows the box plot and z-score derived for a sample country United States.
+
+
+
+```{r message=FALSE, warning=FALSE, fig.width=5,fig.height=3}
+library(car)
+#Drawing the boxplot to see the outliers for China
+total_pop_clean_USA<- Total_pop_last %>% filter(Country_Name=="United States")
+
+plot1<- ggplot(data=total_pop_clean_USA,
+               aes(x=Country_Name,y=Total_population/1000000))
+plot1<- plot1+geom_boxplot(outlier.colour="red", outlier.shape=8, outlier.size=4, fill="cyan")+theme(legend.position = "none",
+        plot.title = element_text(lineheight=1, face="bold",size=10),
+        axis.text.x = element_text(hjust = 0.5, vjust = 0.5,size=8),
+        axis.text.y = element_text(hjust = 0.5, vjust = 0.5,angle=90,size=8),
+        axis.title = element_text(hjust = 0.5, vjust = 0.5,size=10),
+        legend.title = element_blank())+
+  labs(x="Country Name", y="Total population ('000000)",
+       title_main="Boxplot of Total Population in USA Over the Years")+
+  coord_flip()
+plot1
+```
+
+**z- score approach to see the outliers for USA**
+
+```{r}
+z.score_USA <- total_pop_clean_USA$Total_population %>%  scores(type = "z")
+z.score_USA %>% summary()
+
+```
+
+```{r}
+which( abs(z.score_USA) >3 )
+```
+As per the boxplot & z-score, it can be concluded that there are no outliers in Total_population in z.score_USA.
+Similarly, the outliers have been investigated for other 58 countries.
+
+<P style="page-break-before: always">
+
+##	Transform 
+
+The only variable qualified for transformation in the data set is Total_population.The distribution of Total_population is strongly right skewed and not normal.  
+The below figure shows the histogram of Total_population: 
+
+
+```{r,fig.width=4,fig.height=3}
+#Histogram of Total_population
+hist(Total_pop_last$Total_population,
+     border="black",col="cyan",cex.main=0.75,cex.axis=0.6,cex.lab=0.75)
+
+
+```
+
+Different transformations (logarithm, roots, reciprocal & BoxCox) have been applied to Total_population to eliminate  the right skewness and to make it normal. The logarithm base e (ln) transformation is identified to be the best transformation out of all for this particular data set. Below is the histogram after the transformation. It can be seen that it is much close to normal after the transformation. 
+
+
+```{r,fig.width=4,fig.height=3}
+
+#Histogram of ln_Total_population
+ln_Total_population<-log(Total_pop_last$Total_population)
+hist(ln_Total_population,
+     border="black",col="cyan",cex.main=0.75,cex.axis=0.6,cex.lab=0.75)
+```
+
+<br>
+<br>
